@@ -86,26 +86,71 @@ def login_view(request):
     })
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def me_view(request):
-    """Return the currently authenticated user's info."""
+    """Return or update the currently authenticated user's info."""
     user = request.user
     profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    if request.method == 'PUT':
+        data = request.data
+        if 'first_name' in data: user.first_name = data['first_name'].strip()
+        if 'last_name' in data:  user.last_name = data['last_name'].strip()
+        if 'email' in data:      user.email = data['email'].strip()
+        user.save()
+
+        if 'phone' in data:
+            profile.phone = data['phone'].strip()
+            profile.save()
+            
+        return Response({"message": "Profile updated successfully"})
+
     return Response({
         'id':          user.id,
         'username':    user.username,
         'email':       user.email,
         'first_name':  user.first_name,
         'last_name':   user.last_name,
+        'phone':       profile.phone,
         'is_staff':    user.is_staff,
         'is_enrolled': profile.is_enrolled,
+        'balance':     str(profile.balance),
     })
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ADMIN ENDPOINTS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_analytics(request):
+    total_users = User.objects.filter(is_staff=False).count()
+    enrolled_users = UserProfile.objects.filter(is_enrolled=True).count()
+    
+    total_txns = Transaction.objects.count()
+    escalated_txns = Transaction.objects.filter(status='ESCALATED').count()
+    allowed_txns = Transaction.objects.filter(status='ALLOWED').count()
+    denied_txns = Transaction.objects.filter(status='DENIED').count()
+    
+    from .models import KYCApplication
+    pending_kyc = KYCApplication.objects.filter(status='PENDING').count()
+    
+    # Simple risk breakdown
+    high_risk = Transaction.objects.filter(risk_score__gte=0.8).count()
+    med_risk = Transaction.objects.filter(risk_score__gte=0.4, risk_score__lt=0.8).count()
+    low_risk = Transaction.objects.filter(risk_score__lt=0.4).count()
+
+    return Response({
+        'users': {'total': total_users, 'enrolled': enrolled_users},
+        'transactions': {
+            'total': total_txns, 'escalated': escalated_txns, 
+            'allowed': allowed_txns, 'denied': denied_txns
+        },
+        'risk': {'high': high_risk, 'medium': med_risk, 'low': low_risk},
+        'kyc': {'pending': pending_kyc}
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
@@ -123,6 +168,7 @@ def admin_list_users(request):
             'last_name':   u.last_name,
             'is_active':   u.is_active,
             'is_enrolled': profile.is_enrolled if profile else False,
+            'balance':     str(profile.balance) if profile else '50000.00',
             'date_joined': u.date_joined,
         })
     return Response(data)
@@ -291,6 +337,13 @@ def initiate_transaction(request):
     if amount <= 0 or not payee_name:
         return Response({'error': 'Amount and payee name are required.'}, status=400)
 
+    # ── Balance check ──────────────────────────────────────────────────────────
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if float(profile.balance) < amount:
+        return Response({
+            'error': f'Insufficient balance. Your current balance is ₹{profile.balance:,.2f}.'
+        }, status=400)
+
     # Run risk engine
     risk = compute_risk_score(amount=amount, payee_name=payee_name)
 
@@ -321,6 +374,8 @@ def initiate_transaction(request):
     if not risk['challenge_required']:
         txn.status = Transaction.Status.ALLOWED
         txn.save()
+        # ── Transfer funds immediately for low-risk ────────────────────────────
+        _execute_transfer(request.user, payee_name, payee_acct, amount)
         AuditLog.objects.create(
             transaction = txn,
             event_type  = AuditLog.EventType.LOW_RISK_PASSTHROUGH,
@@ -333,6 +388,7 @@ def initiate_transaction(request):
         'risk_factors':      risk['risk_factors'],
         'challenge_required': risk['challenge_required'],
         'status':            txn.status,
+        'sender_balance':    str(profile.balance),
     })
 
 
@@ -387,7 +443,12 @@ def save_decision(request):
         detail      = {'result': result, 'rationale': rationale},
     )
 
-    return Response({'status': txn.status, 'result': result})
+    # ── Execute fund transfer on ALLOW ─────────────────────────────────────────
+    new_balance = None
+    if result == 'ALLOW':
+        new_balance = _execute_transfer(txn.user, txn.payee_name, txn.payee_account, float(txn.amount))
+
+    return Response({'status': txn.status, 'result': result, 'new_balance': str(new_balance) if new_balance is not None else None})
 
 
 @api_view(['GET'])
@@ -502,6 +563,9 @@ def verify_audio(request):
         # ── Voice Biometrics Check ─────────────────────────────────────────────
         voice_verified = True
         voice_score = 1.0
+        synthetic_audio_flag = False
+        authenticity_score = 0.98
+
         try:
             profile = UserProfile.objects.get(user=request.user)
             if profile.is_enrolled and profile.voiceprint:
@@ -509,7 +573,18 @@ def verify_audio(request):
                 challenge_vp = extract_voiceprint(audio_array, sr=SAMPLE_RATE)
                 # Compare to saved profile
                 voice_verified, voice_score = verify_speaker(profile.voiceprint, challenge_vp, threshold=0.85)
+                
+                # Mock Synthetic Audio Classifier (SRS Point 2)
+                # In production, a heavy neural network would analyze spectral patterns for AI artefacts
+                if voice_score < 0.60:
+                    synthetic_audio_flag = True
+                    authenticity_score = 0.30
+                else:
+                    synthetic_audio_flag = False
+                    authenticity_score = 0.95 + (voice_score * 0.04) # e.g. 0.99
+
                 print(f"[verify_audio] Speaker Verification: score={voice_score:.2f} passed={voice_verified}")
+                print(f"[verify_audio] Authenticity Check: score={authenticity_score:.2f} synthetic={synthetic_audio_flag}")
             else:
                 print("[verify_audio] User not enrolled in voice biometrics, skipping check.")
         except UserProfile.DoesNotExist:
@@ -525,6 +600,8 @@ def verify_audio(request):
             "expected": expected_code,
             "voice_verified": voice_verified,
             "voice_score": voice_score,
+            "synthetic_audio_flag": synthetic_audio_flag,
+            "authenticity_score": round(authenticity_score, 2),
         })
 
     except Exception as e:
@@ -591,6 +668,37 @@ def decision_fusion(request):
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def _execute_transfer(sender: User, payee_name: str, payee_account: str, amount: float):
+    """
+    Debit sender's balance and credit receiver's balance (if they're a registered user).
+    Receiver is matched by username or email. Returns the sender's new balance.
+    """
+    from decimal import Decimal
+    amt = Decimal(str(amount))
+
+    sender_profile, _ = UserProfile.objects.get_or_create(user=sender)
+    sender_profile.balance = max(Decimal('0'), sender_profile.balance - amt)
+    sender_profile.save(update_fields=['balance'])
+    print(f"[transfer] Debited ₹{amount} from {sender.username}. New balance: {sender_profile.balance}")
+
+    # Try to find receiver by username or email
+    receiver = None
+    if payee_account:
+        receiver = User.objects.filter(username=payee_account).first() or \
+                   User.objects.filter(email=payee_account).first()
+    if not receiver and payee_name:
+        receiver = User.objects.filter(username=payee_name).first()
+
+    if receiver and receiver != sender:
+        recv_profile, _ = UserProfile.objects.get_or_create(user=receiver)
+        recv_profile.balance += amt
+        recv_profile.save(update_fields=['balance'])
+        print(f"[transfer] Credited ₹{amount} to {receiver.username}. New balance: {recv_profile.balance}")
+    else:
+        print(f"[transfer] Payee '{payee_name}' / '{payee_account}' not a registered user — funds debited only.")
+
+    return sender_profile.balance
 
 def _serialize_transaction(t: Transaction) -> dict:
     return {

@@ -2,21 +2,45 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #3e2723; /* Dark warm brown for text */
-  --primary-red: #d32f2f; /* Deep red for primary buttons */
+  --surface: #f9fafb;
+  --surface-elevated: #ffffff;
+  --foreground: #111827;
+  --foreground-muted: #374151;
+  --primary-red: #d32f2f;
   --primary-red-hover: #b71c1c;
-  --secondary-brown: #5d4037; /* Secondary accent */
-  --accent-brown: #795548;
-  --border-brown: #d7ccc8; /* Light brown for borders */
+  --secondary-brown: #374151;
+  --accent-brown: #4b5563;
+  --border: #e5e7eb;
+  --border-brown: #d1d5db;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.dark {
+  --background: #0f1117;
+  --surface: #1a1d27;
+  --surface-elevated: #21253a;
+  --foreground: #f1f5f9;
+  --foreground-muted: #cbd5e1;
+  --primary-red: #ef5350;
+  --primary-red-hover: #e53935;
+  --secondary-brown: #e2e8f0;
+  --accent-brown: #cbd5e1;
+  --border: #2d3148;
+  --border-brown: #3d4268;
+  --card-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
   --color-primary-red: var(--primary-red);
   --color-primary-red-hover: var(--primary-red-hover);
   --color-secondary-brown: var(--secondary-brown);
   --color-accent-brown: var(--accent-brown);
+  --color-border: var(--border);
   --color-border-brown: var(--border-brown);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -26,5 +50,21 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Make all labels and inputs dark and readable */
+label { color: #111827; }
+.dark label { color: #f1f5f9; }
+input, select, textarea { color: #111827; }
+.dark input, .dark select, .dark textarea { color: #f1f5f9; }
+
+/* Smooth transitions for dark mode switching */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track { background: var(--surface); }
+.dark ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

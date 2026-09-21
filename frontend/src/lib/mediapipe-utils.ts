@@ -67,8 +67,8 @@ export function calculateHeadPose(landmarks: Landmark[]): { yaw: string, pitch: 
   const ratio = leftDist / rightDist;
   
   let yaw = 'center';
-  if (ratio < 0.6) yaw = 'right';
-  else if (ratio > 1.6) yaw = 'left';
+  if (ratio < 0.6) yaw = 'left';
+  else if (ratio > 1.6) yaw = 'right';
   
   // Basic pitch estimation using nose vs eyes
   const leftEye = landmarks[159]; // Top of left eye

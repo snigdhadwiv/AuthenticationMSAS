@@ -16,9 +16,10 @@ type Results = {
 interface ChallengeProps {
   transactionId?: number;  // if provided, saves decision to backend after completion
   token?: string;          // JWT bearer token
+  riskScore?: number;      // actual risk score from risk engine (defaults to 0.5)
 }
 
-export default function AuthenticationChallenge({ transactionId, token }: ChallengeProps = {}) {
+export default function AuthenticationChallenge({ transactionId, token, riskScore = 0.5 }: ChallengeProps = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -335,7 +336,7 @@ export default function AuthenticationChallenge({ transactionId, token }: Challe
         body: formData,
       });
 
-      let audioData: { matched: boolean; transcription?: string; transcription_as_digits?: string; raw_digits_only?: string; expected?: string; error?: string };
+      let audioData: any;
       if (!audioRes.ok) {
         const errText = await audioRes.text();
         console.error('[processAudio] verify-audio HTTP error:', audioRes.status, errText);
@@ -344,12 +345,13 @@ export default function AuthenticationChallenge({ transactionId, token }: Challe
         audioData = await audioRes.json();
       }
 
-      console.log('%c━━━ MSAS Audio Result ━━━', 'color: purple; font-weight: bold; font-size:14px');
-      console.log('  Expected Code :', audioData.expected);
-      console.log('  Whisper Heard :', audioData.transcription);
-      console.log('  → as digits   :', audioData.transcription_as_digits);
-      console.log('  Matched?      :', audioData.matched);
-      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: purple');
+      console.log('%c━━━ MSAS Audio & Deepfake Result ━━━', 'color: purple; font-weight: bold; font-size:14px');
+      console.log('  Expected Code      :', audioData.expected);
+      console.log('  Whisper Heard      :', audioData.transcription);
+      console.log('  Matched?           :', audioData.matched);
+      console.log('  Authenticity Score :', audioData.authenticity_score);
+      console.log('  Synthetic Audio?   :', audioData.synthetic_audio_flag);
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: purple');
 
       // 2. Decision Fusion via Gemini
       const fusionRes = await fetch('http://127.0.0.1:8000/api/decision-fusion/', {
@@ -358,7 +360,9 @@ export default function AuthenticationChallenge({ transactionId, token }: Challe
         body: JSON.stringify({
           liveness_passed: livenessOk,
           audio_matched: audioData.matched,
-          risk_score: 0.5,
+          voice_verified: (audioData as any).voice_verified ?? true,
+          synthetic_audio_flag: audioData.synthetic_audio_flag,
+          risk_score: riskScore,
         }),
       });
 
@@ -369,7 +373,14 @@ export default function AuthenticationChallenge({ transactionId, token }: Challe
       }
 
       const fusionData = await fusionRes.json();
+      
+      // Inject our deepfake logic string into rationale for display
+      if (audioData.synthetic_audio_flag) {
+         fusionData.rationale = "[Deepfake Detected] Synthesized audio patterns found. " + fusionData.rationale;
+      }
+      
       console.log('[processAudio] fusionData:', fusionData);
+
 
       // 3. Save decision to transaction (if transactionId is provided)
       if (transactionId && token) {
@@ -434,39 +445,48 @@ export default function AuthenticationChallenge({ transactionId, token }: Challe
       )}
 
       {(phase === 'LIVENESS' || phase === 'RECORDING') && (
-        <div className="relative w-full max-w-[640px] aspect-video bg-black rounded overflow-hidden shadow-inner">
+        <div className="relative w-full max-w-sm mx-auto rounded-3xl overflow-hidden shadow-2xl bg-black border-4 border-gray-800">
           <video
             ref={videoRef}
-            className="absolute top-0 left-0 w-full h-full object-cover transform -scale-x-100"
-            playsInline
+            className="w-full h-auto object-cover transform -scale-x-100"
             autoPlay
+            playsInline
             muted
+            onLoadedMetadata={() => setPhase('LIVENESS')}
           />
           <canvas
             ref={canvasRef}
-            width={640}
-            height={480}
-            className="absolute top-0 left-0 w-full h-full z-10"
+            className="absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100"
           />
 
+          {/* Liveness Target Overlay */}
           {phase === 'LIVENESS' && (
-            <div className="absolute bottom-4 left-0 right-0 z-20 flex flex-col items-center gap-2 px-4">
-              <div className="bg-white/90 px-6 py-3 rounded-xl border-2 border-primary-red text-center animate-pulse">
-                <p className="text-secondary-brown text-xs font-semibold mb-1 uppercase tracking-wide">Liveness Check</p>
-                <p className="text-primary-red font-bold text-xl">{requiredPoseLabel}</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-between p-4 pointer-events-none">
+              
+              <div className="bg-black/60 px-4 py-2 rounded-full border border-white/20">
+                <p className="text-white text-xs font-semibold uppercase tracking-widest animate-pulse">Liveness Check</p>
               </div>
-              {showManualBlink && (
-                <button
-                  onClick={() => {
-                    livenessPassedRef.current = true;
-                    setLivenessPassed(true);
-                    setShowManualBlink(false);
-                  }}
-                  className="bg-secondary-brown text-white text-xs px-4 py-1.5 rounded-full hover:bg-accent-brown transition-colors"
-                >
-                  ✓ Skip (Dev mode)
-                </button>
-              )}
+
+              {/* Point 1: Simulated Random Head Prompt */}
+              <div className="bg-primary-red/90 px-6 py-3 rounded-2xl shadow-xl text-center mb-16 animate-bounce">
+                <p className="text-white font-bold text-xl">{requiredPoseLabel}</p>
+                <p className="text-white/80 text-xs mt-1">Please move your head</p>
+              </div>
+
+              <div className="pointer-events-auto">
+                {showManualBlink && (
+                  <button
+                    onClick={() => {
+                      livenessPassedRef.current = true;
+                      setLivenessPassed(true);
+                      setShowManualBlink(false);
+                    }}
+                    className="bg-gray-800 text-white text-xs px-4 py-2 rounded-full hover:bg-gray-700 transition-colors border border-gray-600 shadow-lg"
+                  >
+                    ✓ Skip (Dev mode)
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

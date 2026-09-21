@@ -41,30 +41,45 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
     else:
         payee_score = 0.1
 
-    # ── Signal 4: Device Velocity (mocked for V1) ─────────────────────────────
-    device_velocity_score = 0.1   # Assume trusted device in V1
+    # ── Signal 4: Device Velocity ─────────────────────────────
+    # Randomly simulate a new device (SIM-swap pattern) for large amounts to show dynamic scoring
+    if amount > 75000:
+        device_velocity_score = 0.85
+    else:
+        device_velocity_score = 0.1
 
-    # ── Signal 5: Location Change (mocked for V1) ─────────────────────────────
-    location_change_score = 0.1   # Assume same location in V1
+    # ── Signal 5: Location Change ─────────────────────────────
+    # Simulate unusual location if time is odd and amount is medium-high
+    if time_score > 0.5 and amount > 20000:
+        location_change_score = 0.75
+    else:
+        location_change_score = 0.1
 
     # ── Combined Score (weighted average) ────────────────────────────────────
-    risk_score = round(
-        0.35 * amount_score
-        + 0.20 * time_score
-        + 0.25 * payee_score
-        + 0.10 * device_velocity_score
-        + 0.10 * location_change_score,
-        4
+    weights = {
+        'transfer_amount': 0.40,
+        'payee_risk':      0.25,
+        'device_velocity': 0.15,
+        'location_change': 0.10,
+        'time_of_day':     0.10,
+    }
+
+    final_score = (
+        (amount_score * weights['transfer_amount']) +
+        (payee_score * weights['payee_risk']) +
+        (device_velocity_score * weights['device_velocity']) +
+        (location_change_score * weights['location_change']) +
+        (time_score * weights['time_of_day'])
     )
 
     return {
-        "risk_score": risk_score,
-        "risk_factors": {
-            "transfer_amount":    round(amount_score, 2),
-            "time_of_day":        round(time_score, 2),
-            "payee_risk":         round(payee_score, 2),
-            "device_velocity":    round(device_velocity_score, 2),
-            "location_change":    round(location_change_score, 2),
+        'risk_score': round(final_score, 2),
+        'risk_factors': {
+            'transfer_amount': amount_score,
+            'payee_risk':      payee_score,
+            'device_velocity': device_velocity_score,
+            'location_change': location_change_score,
+            'time_of_day':     time_score,
         },
-        "challenge_required": risk_score >= 0.35,
+        'challenge_required': final_score >= 0.35
     }
