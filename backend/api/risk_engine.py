@@ -13,14 +13,18 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
         hour = datetime.now().hour
 
     # ── Signal 1: Transfer Amount ──────────────────────────────────────────────
-    if amount >= 100000:       # ₹1 lakh+
+    if amount >= 100000:       # ₹1 lakh+  → maximum risk
         amount_score = 1.0
-    elif amount >= 50000:      # ₹50k–1 lakh
-        amount_score = 0.7
-    elif amount >= 10000:      # ₹10k–50k
+    elif amount >= 50000:      # ₹50k–1 lakh → very high
+        amount_score = 0.85
+    elif amount >= 30000:      # ₹30k–50k  → high
+        amount_score = 0.65
+    elif amount >= 10000:      # ₹10k–30k  → medium
         amount_score = 0.4
-    else:
-        amount_score = 0.1
+    elif amount >= 2000:       # ₹2k–10k   → low-medium
+        amount_score = 0.2
+    else:                      # < ₹2k     → routine
+        amount_score = 0.05
 
     # ── Signal 2: Time of Day ─────────────────────────────────────────────────
     # Late-night / early-morning transactions are riskier
@@ -43,15 +47,19 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
 
     # ── Signal 4: Device Velocity ─────────────────────────────
     # Randomly simulate a new device (SIM-swap pattern) for large amounts to show dynamic scoring
-    if amount > 75000:
+    if amount > 50000:
         device_velocity_score = 0.85
+    elif amount > 25000:
+        device_velocity_score = 0.45
     else:
         device_velocity_score = 0.1
 
     # ── Signal 5: Location Change ─────────────────────────────
     # Simulate unusual location if time is odd and amount is medium-high
-    if time_score > 0.5 and amount > 20000:
+    if time_score > 0.5 and amount > 10000:
         location_change_score = 0.75
+    elif amount > 30000:
+        location_change_score = 0.35
     else:
         location_change_score = 0.1
 
@@ -81,5 +89,5 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
             'location_change': location_change_score,
             'time_of_day':     time_score,
         },
-        'challenge_required': final_score >= 0.35
+        'challenge_required': final_score >= 0.50
     }
