@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.contrib import admin
-from .models import UserProfile, Transaction, AuditLog
+from .models import UserProfile, Transaction, AuditLog, KYCApplication, KYCAuditLog
 
 
 # ── Inline audit log in Transaction admin ─────────────────────────────────────
@@ -13,7 +13,7 @@ class AuditLogInline(admin.TabularInline):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone', 'is_enrolled', 'enrollment_date', 'created_at')
+    list_display = ('user', 'phone', 'balance', 'is_enrolled', 'enrollment_date', 'created_at')
     list_filter = ('is_enrolled',)
     search_fields = ('user__username', 'user__email')
 
@@ -35,3 +35,18 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_display = ('transaction', 'event_type', 'timestamp')
     list_filter = ('event_type',)
     readonly_fields = ('transaction', 'event_type', 'detail', 'timestamp')
+
+
+@admin.register(KYCApplication)
+class KYCApplicationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'full_name', 'document_type', 'status', 'ai_decision', 'field_match_score', 'created_at')
+    list_filter = ('status', 'document_type')
+    search_fields = ('full_name', 'email', 'phone')
+
+
+@admin.register(KYCAuditLog)
+class KYCAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('application', 'event_type', 'timestamp')
+    list_filter = ('event_type',)
+    readonly_fields = ('application', 'event_type', 'detail', 'timestamp')
+
