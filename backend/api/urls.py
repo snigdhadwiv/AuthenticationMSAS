@@ -31,6 +31,7 @@ urlpatterns = [
 
     # ── ML Core ───────────────────────────────────────────────────────────────
     path('verify-audio/',    views.verify_audio,    name='verify_audio'),
+    path('verify-liveness/', views.verify_liveness, name='verify_liveness'),
     path('decision-fusion/', views.decision_fusion, name='decision_fusion'),
 
     # ── eKYC Onboarding (public — no auth required) ────────────────────────

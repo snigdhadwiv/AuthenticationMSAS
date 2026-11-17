@@ -22,6 +22,7 @@ from google.genai import types
 from .models import UserProfile, Transaction, AuditLog
 from .risk_engine import compute_risk_score
 from .biometrics import extract_voiceprint, verify_speaker
+from .deepfake_detector import analyze_face_frame, analyze_audio_authenticity
 
 # ── FFmpeg Setup ──────────────────────────────────────────────────────────────
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
@@ -571,20 +572,21 @@ def verify_audio(request):
             if profile.is_enrolled and profile.voiceprint:
                 # Extract the voiceprint from this login attempt
                 challenge_vp = extract_voiceprint(audio_array, sr=SAMPLE_RATE)
-                # Compare to saved profile
-                voice_verified, voice_score = verify_speaker(profile.voiceprint, challenge_vp, threshold=0.85)
+                # Compare to saved profile using 0.75 threshold (calibrated for real-world microphones)
+                voice_verified, voice_score = verify_speaker(profile.voiceprint, challenge_vp, threshold=0.75)
                 
-                # Mock Synthetic Audio Classifier (SRS Point 2)
-                # In production, a heavy neural network would analyze spectral patterns for AI artefacts
-                if voice_score < 0.60:
-                    synthetic_audio_flag = True
-                    authenticity_score = 0.30
-                else:
-                    synthetic_audio_flag = False
-                    authenticity_score = 0.95 + (voice_score * 0.04) # e.g. 0.99
+                # ── Real Synthetic Audio Classifier (OpenCV Spectral Analysis) ────
+                # Frequency-domain analysis using spectral flatness, ZCR variance, and rolloff variance.
+                audio_analysis = analyze_audio_authenticity(audio_array, sr=SAMPLE_RATE)
+                synthetic_audio_flag = not audio_analysis["is_authentic"]
+                authenticity_score = audio_analysis["authenticity_score"]
 
                 print(f"[verify_audio] Speaker Verification: score={voice_score:.2f} passed={voice_verified}")
-                print(f"[verify_audio] Authenticity Check: score={authenticity_score:.2f} synthetic={synthetic_audio_flag}")
+                print(f"[verify_audio] Audio Authenticity: score={authenticity_score:.3f} synthetic={synthetic_audio_flag}")
+                print(f"[verify_audio] Audio Detail: {audio_analysis['detail']}")
+                print(f"[verify_audio]   Spectral Flatness={audio_analysis['spectral_flatness']:.5f}")
+                print(f"[verify_audio]   ZCR Variance={audio_analysis['zcr_variance']:.6f}")
+                print(f"[verify_audio]   Rolloff Variance={audio_analysis['rolloff_variance']:.6f}")
             else:
                 print("[verify_audio] User not enrolled in voice biometrics, skipping check.")
         except UserProfile.DoesNotExist:
@@ -619,15 +621,63 @@ def verify_audio(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def verify_liveness(request):
+    """
+    Receives a webcam frame (JPEG/PNG) and runs real OpenCV-based
+    anti-spoofing texture analysis:
+      1. Laplacian Variance (micro-texture sharpness)
+      2. LBP Histogram Entropy (skin texture diversity)
+      3. DCT High-Frequency Energy Ratio (spectral analysis)
+
+    Expects: multipart/form-data with field 'frame' containing image bytes.
+    Returns: JSON with is_live, liveness_score, per-signal results, and detail.
+    """
+    frame_file = request.FILES.get('frame')
+    if not frame_file:
+        return Response({"is_live": False, "error": "No frame provided."}, status=400)
+
+    image_bytes = frame_file.read()
+    print(f"[verify_liveness] Received frame: {frame_file.name}, {len(image_bytes)} bytes")
+
+    result = analyze_face_frame(image_bytes)
+
+    print(f"[verify_liveness] Result: is_live={result['is_live']}, score={result['liveness_score']}")
+    print(f"[verify_liveness]   Laplacian Variance = {result['laplacian_variance']}")
+    print(f"[verify_liveness]   LBP Entropy        = {result['lbp_entropy']}")
+    print(f"[verify_liveness]   HF Energy Ratio    = {result['high_freq_energy']}")
+    print(f"[verify_liveness]   Signals: {result['signals']}")
+    print(f"[verify_liveness]   Detail: {result['detail']}")
+
+    return Response(result)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def decision_fusion(request):
-    """Gemini LLM Decision Fusion with local rule fallback."""
+    """Gemini LLM Decision Fusion with local rule fallback. Now includes real anti-spoof analysis."""
     liveness_passed = request.data.get('liveness_passed', False)
     audio_matched   = request.data.get('audio_matched', False)
     voice_verified  = request.data.get('voice_verified', True)  # default true for backward compat
+    voice_score     = float(request.data.get('voice_score', 1.0))
     risk_score      = float(request.data.get('risk_score', 0.5))
+    synthetic_audio = request.data.get('synthetic_audio_flag', False)
+    anti_spoof      = request.data.get('anti_spoof', None)  # OpenCV texture analysis result
 
-    print(f"[decision_fusion] liveness={liveness_passed}, audio={audio_matched}, voice={voice_verified}, risk={risk_score}")
+    # ── Extract anti-spoof signals ────────────────────────────────────────────
+    spoof_detected = False
+    anti_spoof_detail = ""
+    if anti_spoof and isinstance(anti_spoof, dict):
+        spoof_detected = not anti_spoof.get('is_live', True)
+        anti_spoof_detail = anti_spoof.get('detail', '')
+        print(f"[decision_fusion] Anti-Spoof: is_live={anti_spoof.get('is_live')}, "
+              f"score={anti_spoof.get('liveness_score')}, "
+              f"signals={anti_spoof.get('signals')}")
 
+    print(f"[decision_fusion] liveness={liveness_passed}, audio={audio_matched}, "
+          f"voice={voice_verified} (score={voice_score:.2f}), risk={risk_score}, "
+          f"synthetic_audio={synthetic_audio}, spoof_detected={spoof_detected}")
+
+    # ── Hard deny conditions ──────────────────────────────────────────────────
     if not liveness_passed or not audio_matched or not voice_verified:
         reasons = []
         if not liveness_passed: reasons.append("liveness check failed")
@@ -635,9 +685,44 @@ def decision_fusion(request):
         if not voice_verified:  reasons.append("speaker voiceprint did not match enrolled profile")
         return Response({"result": "DENY", "rationale": f"Access denied: {' and '.join(reasons)}."})
 
+    if spoof_detected:
+        return Response({
+            "result": "DENY",
+            "rationale": f"[Spoof Detected] OpenCV texture analysis flagged potential presentation attack. {anti_spoof_detail}"
+        })
+
+    if synthetic_audio:
+        return Response({
+            "result": "DENY",
+            "rationale": "[Deepfake Audio Detected] Spectral analysis flagged synthetic/AI-generated audio patterns."
+        })
+
+    # ── Biometric Ambiguity / Borderline Case (Human-in-the-Loop Escalation) ───
+    if voice_score < 0.70:
+        return Response({
+            "result": "ESCALATE",
+            "rationale": f"Liveness and passcode verified, but voice similarity ({voice_score:.2f}) was borderline due to acoustic noise. Transaction frozen for compliance officer review."
+        })
+
+    # Build anti-spoof context string for the LLM
+    anti_spoof_ctx = ""
+    if anti_spoof and isinstance(anti_spoof, dict):
+        anti_spoof_ctx = (
+            f"\n    Anti-Spoof Analysis: PASSED (liveness_score={anti_spoof.get('liveness_score', 'N/A')}, "
+            f"laplacian={anti_spoof.get('laplacian_variance', 'N/A')}, "
+            f"lbp_entropy={anti_spoof.get('lbp_entropy', 'N/A')}, "
+            f"hf_energy={anti_spoof.get('high_freq_energy', 'N/A')})"
+        )
+
     prompt = f"""
     You are a Zero-Trust FinTech Security Decision Engine.
-    Liveness, speech code matching, and voice biometrics have all passed.
+    All biometric checks have passed:
+    - Face Liveness: PASSED (MediaPipe head-pose verified)
+    - Speech Code: MATCHED (Whisper ASR transcribed correctly)
+    - Voice Biometrics: VERIFIED (MFCC cosine similarity above threshold)
+    - Synthetic Audio Check: CLEAN (spectral analysis found no AI artifacts){anti_spoof_ctx}
+
+    Decision rules:
     - ALLOW if risk_score <= 0.8
     - ESCALATE if risk_score > 0.8
     Transaction Risk Score (0.0–1.0): {risk_score}

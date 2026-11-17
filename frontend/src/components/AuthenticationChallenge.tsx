@@ -52,6 +52,7 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
   const [decision, setDecision] = useState<{ result: string; rationale: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showManualBlink, setShowManualBlink] = useState(false);
+  const [antiSpoofResult, setAntiSpoofResult] = useState<any>(null);
 
   useEffect(() => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -197,10 +198,66 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
   // Trigger recording phase once liveness is confirmed
   useEffect(() => {
     if (livenessPassed && phase === 'LIVENESS') {
-      startAudioRecording();
+      captureAndVerifyFrame().then(() => startAudioRecording());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livenessPassed]);
+
+  /**
+   * Captures a single frame from the live webcam feed, sends it to the
+   * backend /api/verify-liveness/ endpoint for real OpenCV texture analysis
+   * (Laplacian variance, LBP entropy, DCT high-frequency energy).
+   */
+  const captureAndVerifyFrame = async () => {
+    try {
+      const video = videoRef.current;
+      if (!video) return;
+
+      // Draw current video frame onto an offscreen canvas
+      const offscreen = document.createElement('canvas');
+      offscreen.width = video.videoWidth || 640;
+      offscreen.height = video.videoHeight || 480;
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0);
+
+      // Convert canvas to JPEG blob
+      const blob: Blob | null = await new Promise(resolve =>
+        offscreen.toBlob(resolve, 'image/jpeg', 0.92)
+      );
+      if (!blob) return;
+
+      console.log(`[captureAndVerifyFrame] Sending frame: ${blob.size} bytes`);
+
+      const formData = new FormData();
+      formData.append('frame', blob, 'liveness_frame.jpg');
+
+      const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch('http://127.0.0.1:8000/api/verify-liveness/', {
+        method: 'POST',
+        headers: { ...authHeader },
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setAntiSpoofResult(data);
+        console.log('%c━━━ MSAS Anti-Spoof Analysis ━━━', 'color: #dc2626; font-weight: bold; font-size:14px');
+        console.log('  Is Live?           :', data.is_live);
+        console.log('  Liveness Score     :', data.liveness_score);
+        console.log('  Laplacian Variance :', data.laplacian_variance);
+        console.log('  LBP Entropy        :', data.lbp_entropy);
+        console.log('  HF Energy Ratio    :', data.high_freq_energy);
+        console.log('  Signals            :', data.signals);
+        console.log('  Detail             :', data.detail);
+        console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #dc2626');
+      } else {
+        console.warn('[captureAndVerifyFrame] Backend returned', res.status);
+      }
+    } catch (err) {
+      console.error('[captureAndVerifyFrame] Error:', err);
+    }
+  };
 
   const spokenCodeRef = useRef('');
   const isAbortedRef = useRef(false);
@@ -349,11 +406,14 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
       console.log('  Expected Code      :', audioData.expected);
       console.log('  Whisper Heard      :', audioData.transcription);
       console.log('  Matched?           :', audioData.matched);
+      console.log('  Voice Verified     :', audioData.voice_verified);
+      console.log('  Voice Score        :', audioData.voice_score);
       console.log('  Authenticity Score :', audioData.authenticity_score);
       console.log('  Synthetic Audio?   :', audioData.synthetic_audio_flag);
       console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: purple');
 
       // 2. Decision Fusion via Gemini
+      // Include the real anti-spoof texture analysis result from the frame capture
       const fusionRes = await fetch('http://127.0.0.1:8000/api/decision-fusion/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeader },
@@ -361,8 +421,11 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
           liveness_passed: livenessOk,
           audio_matched: audioData.matched,
           voice_verified: (audioData as any).voice_verified ?? true,
+          voice_score: audioData.voice_score ?? 1.0,
           synthetic_audio_flag: audioData.synthetic_audio_flag,
           risk_score: riskScore,
+          // Real OpenCV anti-spoof analysis from frame capture
+          anti_spoof: antiSpoofResult || null,
         }),
       });
 
