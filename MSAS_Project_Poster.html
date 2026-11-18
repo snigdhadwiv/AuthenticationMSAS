@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MSAS Project Poster — Snigdha Dwivedi</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #1e293b;
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .poster-container {
+      width: 1400px;
+      background: #f8fafc;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      border: 1px solid #334155;
+    }
+
+    /* ── HEADER ── */
+    .poster-header {
+      background: linear-gradient(135deg, #090d16 0%, #1e293b 100%);
+      color: white;
+      padding: 32px 48px;
+      display: grid;
+      grid-template-columns: 200px 1fr 340px;
+      align-items: center;
+      gap: 32px;
+      border-bottom: 5px solid #dc2626;
+      position: relative;
+    }
+
+    .poster-header::after {
+      content: "";
+      position: absolute;
+      top: 0; right: 0; bottom: 0; left: 0;
+      background: radial-gradient(circle at 80% 20%, rgba(220, 38, 38, 0.15), transparent 60%);
+      pointer-events: none;
+    }
+
+    .header-logo img {
+      max-width: 180px;
+      height: auto;
+      background: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .header-title h1 {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .header-title .tagline {
+      font-size: 14px;
+      color: #f87171;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .header-meta {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(8px);
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .meta-group {
+      margin-bottom: 10px;
+    }
+
+    .meta-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-val {
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .meta-sub {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    /* ── POSTER GRID ── */
+    .poster-body {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #f1f5f9;
+    }
+
+    .card-title .badge {
+      background: #dc2626;
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .card p, .card li {
+      font-size: 13px;
+      line-height: 1.55;
+      color: #334155;
+    }
+
+    .card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card ul li {
+      position: relative;
+      padding-left: 18px;
+    }
+
+    .card ul li::before {
+      content: "▪";
+      position: absolute;
+      left: 0;
+      color: #dc2626;
+      font-size: 14px;
+      top: -1px;
+    }
+
+    .highlight-box {
+      background: #fef2f2;
+      border-left: 4px solid #dc2626;
+      padding: 10px 14px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #991b1b;
+      font-weight: 600;
+    }
+
+    /* ── SCREENSHOT PLACEHOLDER BOXES ── */
+    .screenshot-box {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 24px 16px;
+      text-align: center;
+      margin: 12px 0 6px 0;
+      transition: all 0.2s ease;
+    }
+
+    .screenshot-box:hover {
+      border-color: #dc2626;
+      background: #fff5f5;
+    }
+
+    .screenshot-box .icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+      color: #64748b;
+    }
+
+    .screenshot-box .lbl {
+      font-size: 12px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 4px;
+    }
+
+    .screenshot-box .sub {
+      font-size: 11px;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* ── CODE SNIPPET / FORMULA ── */
+    .formula-badge {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      margin: 8px 0;
+      display: block;
+      line-height: 1.4;
+    }
+
+    /* ── FOOTER BAR ── */
+    .poster-footer {
+      background: #1e293b;
+      color: white;
+      padding: 16px 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      border-top: 2px solid #334155;
+    }
+
+    .footer-link a {
+      color: #38bdf8;
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    .footer-link a:hover {
+      text-decoration: underline;
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: white;
+      }
+      .poster-container {
+        width: 100%;
+        box-shadow: none;
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="poster-container">
+    
+    <!-- ── HEADER ── -->
+    <header class="poster-header">
+      <div class="header-logo">
+        <img src="backend/extracted_template/image1.png" alt="Jagran Lakecity University Logo">
+      </div>
+      <div class="header-title">
+        <span class="tagline">Major Project-1 · Faculty of Science and Technology · JSEN</span>
+        <h1>MULTIMODAL STEP-UP AUTHENTICATION SYSTEM (MSAS)</h1>
+        <p style="font-size: 13px; color: #cbd5e1; margin-top: 4px;">
+          Adaptive Risk Engine · Active 3D Head-Pose Liveness · Whisper ASR · KYC Cross-Verification · Gemini Decision Fusion
+        </p>
+      </div>
+      <div class="header-meta">
+        <div class="meta-group">
+          <div class="meta-label">Submitted By (Solo Project)</div>
+          <div class="meta-val">Snigdha Dwivedi</div>
+          <div class="meta-sub">Roll No: 2023BTCSE018 | JLU ID: JLU08236</div>
+          <div class="meta-sub">B.Tech (CSE) 7th Sem · Dec 2026</div>
+        </div>
+        <div class="meta-group">
+          <div class="meta-label">Project Guide & Supervisor</div>
+          <div class="meta-val">Dr. Dileep Kumar</div>
+          <div class="meta-sub">Project Guide and Coordinator</div>
+          <div class="meta-sub">Professor and head, JSEN</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── BODY GRID ── -->
+    <main class="poster-body">
+
+      <!-- ── COLUMN 1: MOTIVATION & CONTEXTUAL RISK ENGINE ── -->
+      <div class="column">
+        
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">01</span> Problem Definition & Motivation
+          </div>
+          <ul>
+            <li><strong>SMS OTP Exploits:</strong> Susceptible to SIM-swapping, SS7 telecom attacks, and automated reverse-proxy phishing kits (e.g. Evilginx2).</li>
+            <li><strong>Generative Deepfakes:</strong> Rapid proliferation of realistic facial and voice synthesis invalidates naive static biometric checks.</li>
+            <li><strong>Indiscriminate Friction:</strong> Traditional 2FA interrupts trivial transactions while offering insufficient protection for high-value fund transfers.</li>
+          </ul>
+          <div class="highlight-box">
+            Objective: Deliver an adaptive, unreplayable multimodal verification middleware failing-closed against presentation attacks.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">02</span> Context-Aware Risk Engine
+          </div>
+          <p>Every transaction evaluates four contextual telemetry features to compute an adaptive risk score R ∈ [0.0, 1.0]:</p>
+          <span class="formula-badge">
+            R = 0.45·Value + 0.25·Payee + 0.15·Balance + 0.15·Velocity
+          </span>
+          <ul>
+            <li><strong>Low Risk (R ≤ 0.40):</strong> Seamless instant passthrough (e.g., ₹5,000 to known payee).</li>
+            <li><strong>High Risk (R > 0.40):</strong> Automated interception triggering interactive Look & Speak step-up challenge.</li>
+          </ul>
+
+          <div class="screenshot-box">
+            <div class="icon">🏦</div>
+            <div class="lbl">Screenshot: ZephyrBank Banking Dashboard</div>
+            <div class="sub">Shows transaction interface & low-risk passthrough execution</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">03</span> Architecture & Boundary Specs
+          </div>
+          <ul>
+            <li><strong>Frontend Client:</strong> Next.js 16, React 19, Tailwind CSS, MediaPipe WASM.</li>
+            <li><strong>Security Middleware:</strong> Django 6.1, Django REST Framework, SimpleJWT SSO.</li>
+            <li><strong>AI / ML Core:</strong> OpenAI Whisper (base ASR), OpenCV 5.0, Google Gemini 3.8 Flash.</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- ── COLUMN 2: MULTIMODAL VERIFICATION CORE ── -->
+      <div class="column">
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">04</span> Active 3D Spatial Liveness Check
+          </div>
+          <p>Client-side MediaPipe FaceMesh tracks 468 3D landmarks at 30 fps to evaluate spatial head orientation:</p>
+          <ul>
+            <li><strong>Yaw Normalization:</strong> Uses temple-to-nose X-axis offset ratio (yawNorm = noseOffset / templeWidth). Unaffected by noisy Z-depth.</li>
+            <li><strong>Dynamic Prompts:</strong> System randomly mandates 'Turn Left', 'Turn Right', 'Look Up', or 'Look Down'.</li>
+            <li><strong>Anti-Replay:</strong> Requires active motion execution within strict 15-second challenge time window.</li>
+          </ul>
+
+          <div class="screenshot-box">
+            <div class="icon">👤</div>
+            <div class="lbl">Screenshot: 3D Head-Pose & Mesh Overlay</div>
+            <div class="sub">Displays MediaPipe landmark reticle & active turn prompt</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">05</span> Acoustic OTP & Whisper ASR
+          </div>
+          <ul>
+            <li><strong>Dynamic Passcode:</strong> 6-digit random one-time code vocalized by the claimant.</li>
+            <li><strong>OpenAI Whisper ASR:</strong> Transcribes spoken audio with real-time digit-by-digit karaoke UI synchronization.</li>
+            <li><strong>Speaker Timbre Verification:</strong> Extracts 20-dimensional MFCC vectors and computes cosine distance against enrolled baseline.</li>
+            <li><strong>Acoustic Anti-Spoofing:</strong> Analyzes spectral flatness, zero-crossing rate, and rolloff variance to flag cloned audio.</li>
+          </ul>
+
+          <div class="screenshot-box">
+            <div class="icon">🎤</div>
+            <div class="lbl">Screenshot: Look & Speak Dynamic Audio Challenge</div>
+            <div class="sub">Shows karaoke digit matching & real-time audio waveform</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── COLUMN 3: KYC CROSS-VERIFICATION, FUSION & RESULTS ── -->
+      <div class="column">
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">06</span> KYC Selfie Cross-Verification
+          </div>
+          <ul>
+            <li><strong>Ground-Truth Binding:</strong> Cross-matches live webcam crop directly against the user's approved eKYC identity document photograph.</li>
+            <li><strong>Photometric Similarity:</strong> 3-channel CIE-LAB color histogram comparison (Bhattacharyya distance).</li>
+            <li><strong>Structural Similarity (SSIM):</strong> Evaluates grayscale facial structural alignment (Threshold ≥ 0.60 → MATCH).</li>
+          </ul>
+
+          <div class="screenshot-box">
+            <div class="icon">🔍</div>
+            <div class="lbl">Screenshot: OpenCV Anti-Spoof & KYC Verification</div>
+            <div class="sub">Displays backend telemetry, Laplacian variance & face score</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">07</span> LLM Multimodal Decision Fusion
+          </div>
+          <p>Google Gemini 3.8 Flash synthesizes all telemetry into an explainable decision:</p>
+          <span class="formula-badge">
+            Telemetry = { Liveness, AudioCode, VoiceTimbre, TextureSpoof, KYC_Face, Risk }
+          </span>
+          <ul>
+            <li><strong>ALLOW:</strong> Biometrics authenticated and consistent with KYC baseline.</li>
+            <li><strong>DENY:</strong> Failed active challenge or spoof pattern detected (fail-closed).</li>
+            <li><strong>ESCALATE:</strong> Edge-case ambiguity routed to administrative human review.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span class="badge">08</span> Major Findings & Deliverables
+          </div>
+          <ul>
+            <li><strong>100% Defense:</strong> Neutralized 50 simulated 2D print & screen replay attacks.</li>
+            <li><strong>Sub-2s Latency:</strong> Real-time inference across standard client devices.</li>
+            <li><strong>IEEE 830 Aligned:</strong> Complete SRS compliance and tamper-evident audit logging.</li>
+          </ul>
+          <div class="highlight-box" style="background: #f0fdf4; border-color: #16a34a; color: #166534;">
+            ✓ End-to-end operational verification across ZephyrBank & MSAS security portal.
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- ── FOOTER ── -->
+    <footer class="poster-footer">
+      <div>
+        <strong>Jagran School of Engineering (JSEN)</strong> · Jagran Lakecity University, Bhopal (M.P.)
+      </div>
+      <div class="footer-link">
+        GitHub: <a href="https://github.com/snigdhadwiv/AuthenticationMSAS.git" target="_blank">https://github.com/snigdhadwiv/AuthenticationMSAS.git</a>
+      </div>
+      <div>
+        Session: July – December 2026
+      </div>
+    </footer>
+
+  </div>
+
+</body>
+</html>
