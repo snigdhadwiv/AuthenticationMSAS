@@ -576,9 +576,14 @@ function ResultScreen({ result, appId }: { result: any; appId: number }) {
           <div className="flex justify-between text-sm"><span style={{ color: '#374151' }}>Username</span><span className="font-mono font-bold" style={{ color: '#111827' }}>{result.username}</span></div>
           <div className="flex justify-between text-sm"><span style={{ color: '#374151' }}>Temporary Password</span><span className="font-mono font-bold" style={{ color: '#111827' }}>{result.password}</span></div>
           <p className="text-xs text-yellow-700 mt-3">⚠️ This password will not be shown again. Please save it now.</p>
-          <button onClick={() => router.push('/login')} className="w-full bg-primary-red text-white font-semibold py-2.5 rounded-xl mt-2 hover:bg-primary-red-hover">
-            Proceed to Login →
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            <button onClick={() => router.push('/bank')} className="w-full bg-blue-600 text-white font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition-colors text-sm">
+              ⚡ Open in ZephyrBank →
+            </button>
+            <button onClick={() => router.push('/login')} className="w-full bg-primary-red text-white font-semibold py-2.5 rounded-xl hover:bg-primary-red-hover transition-colors text-sm">
+              🛡️ Open in MSAS Portal →
+            </button>
+          </div>
         </div>
       )}
 

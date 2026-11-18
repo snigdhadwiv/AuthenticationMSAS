@@ -18,8 +18,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
 
-          {/* Logo only */}
-          <div className="flex items-center gap-3">
+          {/* Logo and Partner App link */}
+          <div className="flex items-center gap-4">
             <Link href={isAdmin ? '/admin-dashboard' : '/dashboard'} className="flex items-center gap-2.5 flex-shrink-0">
               <div className="w-8 h-8 bg-primary-red rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm">
                 M
@@ -31,6 +31,16 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+
+            {!isAdmin && (
+              <Link
+                href="/bank"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 transition-all border border-blue-600/20"
+                title="Switch to ZephyrBank Client Banking Portal"
+              >
+                <span>⚡</span> ZephyrBank Portal →
+              </Link>
+            )}
           </div>
 
           {/* Right side */}

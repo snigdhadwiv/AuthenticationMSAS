@@ -111,6 +111,29 @@ export default function ZephyrBankPage() {
   const [riskResult, setRiskResult] = useState<RiskResult | null>(null);
   const [decision, setDecision] = useState<{ result: string; rationale: string } | null>(null);
 
+  // ── AUTO-RESTORE SHARED SESSION FROM MSAS ──────────────────────────────────
+  useEffect(() => {
+    const storedToken = localStorage.getItem('msas_token');
+    if (!storedToken) return;
+
+    (async () => {
+      try {
+        const meR = await apiFetch('/auth/me/', storedToken);
+        if (!meR.ok) throw new Error('Token expired');
+        const me = await meR.json();
+        setToken(storedToken);
+        setUser({ ...me, balance: me.balance || '50000.00' });
+
+        const txR = await apiFetch('/transactions/', storedToken);
+        if (txR.ok) setTxns(await txR.json());
+        setPhase('DASHBOARD');
+      } catch {
+        localStorage.removeItem('msas_token');
+        localStorage.removeItem('msas_user');
+      }
+    })();
+  }, []);
+
   // ── LOGIN ────────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +151,12 @@ export default function ZephyrBankPage() {
 
       const meR = await apiFetch('/auth/me/', access);
       const me  = await meR.json();
-      setUser({ ...me, balance: me.balance || '50000.00' });
+      const userData = { ...me, balance: me.balance || '50000.00' };
+      setUser(userData);
+
+      // Save shared session in localStorage so MSAS recognizes this login
+      localStorage.setItem('msas_token', access);
+      localStorage.setItem('msas_user', JSON.stringify(userData));
 
       const txR = await apiFetch('/transactions/', access);
       setTxns(await txR.json());
@@ -233,10 +261,37 @@ export default function ZephyrBankPage() {
         <span style={{ background: 'rgba(255,255,255,0.15)', fontSize: 10, padding: '2px 8px', borderRadius: 20, letterSpacing: 1, marginLeft: 4 }}>BUSINESS BANKING</span>
       </div>
       {user && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <span style={{ fontSize: 13, opacity: 0.85 }}>Hello, {user.first_name || user.username}</span>
-          <button onClick={() => { setToken(''); setUser(null); setPhase('LOGIN'); }}
-            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 12 }}>
+          <a
+            href="/dashboard"
+            style={{
+              background: '#ef4444',
+              color: '#fff',
+              padding: '6px 12px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 2px 6px rgba(239,68,68,0.3)',
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <span>🛡️</span> MSAS Security & eKYC Portal →
+          </a>
+          <button
+            onClick={() => {
+              setToken('');
+              setUser(null);
+              localStorage.removeItem('msas_token');
+              localStorage.removeItem('msas_user');
+              setPhase('LOGIN');
+            }}
+            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontSize: 12 }}
+          >
             Sign Out
           </button>
         </div>
@@ -324,11 +379,24 @@ export default function ZephyrBankPage() {
 
           {/* MSAS powered-by badge */}
           <div style={{ marginTop: 20, textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, padding: '8px 16px' }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Security powered by</span>
+            <a
+              href="/login"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                borderRadius: 20,
+                padding: '8px 18px',
+                textDecoration: 'none',
+                transition: 'background 0.2s',
+              }}
+            >
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>Security powered by</span>
               <span style={{ fontWeight: 800, color: '#fca5a5', fontSize: 13, letterSpacing: 0.5 }}>MSAS™</span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Multimodal Auth Middleware</span>
-            </div>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>· Open Security Portal →</span>
+            </a>
           </div>
         </div>
       </div>
