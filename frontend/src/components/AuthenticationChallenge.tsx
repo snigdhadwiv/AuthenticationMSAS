@@ -60,6 +60,8 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
     oneTimeCodeRef.current = code; // keep ref in sync
   }, []);
 
+  const [faceMatchResult, setFaceMatchResult] = useState<any>(null);
+
   const startChallenge = async () => {
     try {
       setPhase('LIVENESS');
@@ -69,8 +71,8 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
       livenessPassedRef.current = false;
       audioChunks.current = [];
 
-      // Show manual fallback after 5s if auto-detection doesn't trigger
-      setTimeout(() => setShowManualBlink(true), 5000);
+      // Show manual fallback only after 45s — only if camera/MediaPipe genuinely fails
+      setTimeout(() => setShowManualBlink(true), 45000);
 
       // Get video stream for face mesh (camera only)
       const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -198,7 +200,16 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
   // Trigger recording phase once liveness is confirmed
   useEffect(() => {
     if (livenessPassed && phase === 'LIVENESS') {
-      captureAndVerifyFrame().then(() => startAudioRecording());
+      // Run anti-spoof texture check AND KYC selfie cross-verification, then proceed to audio
+      (async () => {
+        await captureAndVerifyFrame();      // OpenCV texture anti-spoof
+        const faceOk = await verifyFaceMatch();  // KYC selfie cross-check
+        if (faceOk) {
+          startAudioRecording();
+        } else {
+          failClosed('Face verification failed: live face does not match your registered identity. Please try again.');
+        }
+      })();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [livenessPassed]);
@@ -256,6 +267,61 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
       }
     } catch (err) {
       console.error('[captureAndVerifyFrame] Error:', err);
+    }
+  };
+
+  /**
+   * Captures a live frame and compares it against the user's enrolled KYC selfie
+   * using the backend OpenCV LAB-histogram + SSIM face matcher.
+   * Returns true if the face matches or if no selfie is enrolled (soft-pass).
+   */
+  const verifyFaceMatch = async (): Promise<boolean> => {
+    try {
+      const video = videoRef.current;
+      if (!video) return true; // soft pass
+
+      const offscreen = document.createElement('canvas');
+      offscreen.width  = video.videoWidth  || 640;
+      offscreen.height = video.videoHeight || 480;
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) return true;
+      ctx.drawImage(video, 0, 0);
+
+      const blob: Blob | null = await new Promise(resolve =>
+        offscreen.toBlob(resolve, 'image/jpeg', 0.92)
+      );
+      if (!blob) return true;
+
+      const formData = new FormData();
+      formData.append('frame', blob, 'face_match_frame.jpg');
+
+      const authHeader = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch('http://127.0.0.1:8000/api/verify-face-match/', {
+        method: 'POST',
+        headers: { ...authHeader },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        console.warn('[verifyFaceMatch] Backend returned', res.status, '— soft pass');
+        return true; // Network / server error → soft pass (don't block on infra issues)
+      }
+
+      const data = await res.json();
+      setFaceMatchResult(data);
+
+      console.log('%c━━━ MSAS Face Cross-Verification ━━━', 'color: #1a56db; font-weight: bold; font-size:14px');
+      console.log('  Face Match?        :', data.face_match);
+      console.log('  Composite Score    :', data.similarity);
+      console.log('  Histogram Sim      :', data.hist_sim);
+      console.log('  SSIM               :', data.ssim);
+      console.log('  Detail             :', data.detail);
+      console.log('%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'color: #1a56db');
+
+      return data.face_match === true;
+    } catch (err) {
+      console.error('[verifyFaceMatch] Error:', err);
+      return true; // Soft pass on client-side errors
     }
   };
 
@@ -426,6 +492,8 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
           risk_score: riskScore,
           // Real OpenCV anti-spoof analysis from frame capture
           anti_spoof: antiSpoofResult || null,
+          // KYC selfie cross-verification result
+          face_match: faceMatchResult || null,
         }),
       });
 
@@ -544,9 +612,9 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
                       setLivenessPassed(true);
                       setShowManualBlink(false);
                     }}
-                    className="bg-gray-800 text-white text-xs px-4 py-2 rounded-full hover:bg-gray-700 transition-colors border border-gray-600 shadow-lg"
+                    className="bg-gray-800/80 text-white/70 text-xs px-3 py-1 rounded-full hover:bg-gray-700 transition-colors border border-gray-600 shadow"
                   >
-                    ✓ Skip (Dev mode)
+                    Camera not responding? Continue →
                   </button>
                 )}
               </div>

@@ -621,6 +621,65 @@ def verify_audio(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def verify_face_match(request):
+    """
+    Cross-verify the live webcam face against the user's enrolled KYC selfie.
+
+    Uses OpenCV LAB-colour histogram + SSIM comparison (face_matcher module).
+    Expects: multipart/form-data with field 'frame' (live JPEG webcam frame).
+    Returns: { face_match, similarity, hist_sim, ssim, detail }
+    """
+    from .face_matcher import compare_faces
+    from .models import KYCApplication
+
+    frame_file = request.FILES.get('frame')
+    if not frame_file:
+        return Response({"face_match": False, "error": "No frame provided."}, status=400)
+
+    # Retrieve enrolled selfie for this user
+    try:
+        kyc_app = KYCApplication.objects.filter(
+            created_user=request.user,
+            status='APPROVED',
+        ).order_by('-created_at').first()
+
+        if not kyc_app or not kyc_app.selfie_image:
+            # Fallback: check any application for this user (newly created)
+            kyc_app = KYCApplication.objects.filter(
+                created_user=request.user,
+            ).order_by('-created_at').first()
+
+        if not kyc_app or not kyc_app.selfie_image:
+            print(f"[verify_face_match] No KYC selfie found for user {request.user.username}")
+            return Response({
+                "face_match": True,  # Soft-pass if no selfie enrolled yet
+                "similarity": 1.0,
+                "hist_sim": 1.0,
+                "ssim": 1.0,
+                "detail": "No enrolled selfie found — soft pass granted.",
+            })
+    except Exception as e:
+        print(f"[verify_face_match] DB lookup error: {e}")
+        return Response({
+            "face_match": True,
+            "similarity": 1.0,
+            "hist_sim": 1.0,
+            "ssim": 1.0,
+            "detail": f"DB lookup error ({e}) — soft pass granted.",
+        })
+
+    live_bytes = frame_file.read()
+    print(f"[verify_face_match] User={request.user.username} | Selfie={kyc_app.selfie_image.name} | Frame={len(live_bytes)}B")
+
+    result = compare_faces(kyc_app.selfie_image, live_bytes)
+
+    print(f"[verify_face_match] face_match={result['face_match']} | score={result['similarity']} | {result['detail']}")
+
+    return Response(result)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def verify_liveness(request):
     """
     Receives a webcam frame (JPEG/PNG) and runs real OpenCV-based

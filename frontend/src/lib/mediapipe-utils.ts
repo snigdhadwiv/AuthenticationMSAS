@@ -57,27 +57,53 @@ export function isHeadCentered(landmarks: Landmark[]): boolean {
   return ratio > 0.6 && ratio < 1.6;
 }
 
-export function calculateHeadPose(landmarks: Landmark[]): { yaw: string, pitch: string } {
-  const nose = landmarks[1];
-  const leftEar = landmarks[234];
-  const rightEar = landmarks[454];
-  
-  const leftDist = calculateDistance(nose, leftEar);
-  const rightDist = calculateDistance(nose, rightEar);
-  const ratio = leftDist / rightDist;
-  
+/**
+ * Calculates head yaw (left/right) and pitch (up/down) from MediaPipe Face Mesh landmarks.
+ *
+ * Strategy:
+ *  - YAW: Use only the X-axis positions of the left temple (234), right temple (454),
+ *    and nose tip (1). The nose's horizontal offset from the midpoint of the two
+ *    temples gives a stable yaw signal — unaffected by noisy Z depths.
+ *
+ *    noseOffset = nose.x - (leftTemple.x + rightTemple.x) / 2
+ *    Positive offset → nose has drifted right → head turned LEFT  (mirror-flip aware)
+ *    Negative offset → nose has drifted left  → head turned RIGHT
+ *
+ *    Threshold: ±0.06 in normalised coords (empirically ~20–25°).
+ *
+ *  - PITCH: Use nose tip (1) Y vs chin (152) Y vs forehead centre (10) Y.
+ *    When looking up, forehead-to-nose distance shrinks; looking down, it grows.
+ *    Ratio = (nose.y - forehead.y) / (chin.y - forehead.y)
+ *    Center ≈ 0.45–0.60; <0.40 → up; >0.65 → down.
+ */
+export function calculateHeadPose(landmarks: Landmark[]): { yaw: string; pitch: string } {
+  // ── Yaw ─────────────────────────────────────────────────────────────────────
+  const nose      = landmarks[1];
+  const leftTemple  = landmarks[234];
+  const rightTemple = landmarks[454];
+
+  const midTempleX  = (leftTemple.x + rightTemple.x) / 2;
+  const noseOffset  = nose.x - midTempleX;   // positive → head turned left; negative → right
+
+  // Normalise by inter-temple width so it's scale-independent
+  const templeWidth = Math.abs(rightTemple.x - leftTemple.x) || 0.001;
+  const yawNorm     = noseOffset / templeWidth;  // typical range: -0.5 … +0.5
+
   let yaw = 'center';
-  if (ratio < 0.6) yaw = 'left';
-  else if (ratio > 1.6) yaw = 'right';
-  
-  // Basic pitch estimation using nose vs eyes
-  const leftEye = landmarks[159]; // Top of left eye
-  const mouth = landmarks[13];    // Top lip
-  
-  const eyeMouthDist = Math.abs(leftEye.y - mouth.y);
+  if (yawNorm >  0.12) yaw = 'left';   // nose shifted right relative to temples
+  else if (yawNorm < -0.12) yaw = 'right';
+
+  // ── Pitch ───────────────────────────────────────────────────────────────────
+  const forehead = landmarks[10];   // top of forehead
+  const chin     = landmarks[152];  // chin bottom
+
+  const faceHeight = (chin.y - forehead.y) || 0.001;
+  const pitchRatio = (nose.y - forehead.y) / faceHeight;
+
+  // pitchRatio ~0.45-0.60 is neutral; looking up shrinks top-half, ratio drops
   let pitch = 'center';
-  if (eyeMouthDist < 0.1) pitch = 'up'; // relative screen coords
-  if (eyeMouthDist > 0.3) pitch = 'down';
-  
+  if (pitchRatio < 0.40) pitch = 'up';
+  else if (pitchRatio > 0.65) pitch = 'down';
+
   return { yaw, pitch };
 }

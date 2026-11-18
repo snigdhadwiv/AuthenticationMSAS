@@ -30,9 +30,10 @@ urlpatterns = [
     path('transactions/save-decision/',               views.save_decision,        name='save_decision'),
 
     # ── ML Core ───────────────────────────────────────────────────────────────
-    path('verify-audio/',    views.verify_audio,    name='verify_audio'),
-    path('verify-liveness/', views.verify_liveness, name='verify_liveness'),
-    path('decision-fusion/', views.decision_fusion, name='decision_fusion'),
+    path('verify-audio/',      views.verify_audio,      name='verify_audio'),
+    path('verify-liveness/',   views.verify_liveness,   name='verify_liveness'),
+    path('verify-face-match/', views.verify_face_match, name='verify_face_match'),
+    path('decision-fusion/',   views.decision_fusion,   name='decision_fusion'),
 
     # ── eKYC Onboarding (public — no auth required) ────────────────────────
     path('kyc/apply/',            kyc_views.kyc_apply,           name='kyc_apply'),
