@@ -306,6 +306,20 @@ export default function ZephyrBankPage() {
               priya_sharma / rahul_singh / arjun_mehta / kavya_rao<br />
               <span style={{ color: '#94a3b8' }}>Password: password123</span>
             </div>
+
+            {/* Create Account CTA */}
+            <div style={{ marginTop: 20, textAlign: 'center', paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+              <span style={{ fontSize: 13, color: C.muted }}>New to ZephyrBank? </span>
+              <a
+                href="/kyc"
+                style={{ fontSize: 13, fontWeight: 700, color: C.primary, textDecoration: 'none', borderBottom: `2px solid ${C.primary}`, paddingBottom: 1 }}
+              >
+                Open an Account →
+              </a>
+              <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                📄 Upload Aadhaar / PAN · 🤳 Liveness check · 🎙️ Voice enrolment
+              </p>
+            </div>
           </div>
 
           {/* MSAS powered-by badge */}

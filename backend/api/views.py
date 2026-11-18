@@ -729,20 +729,27 @@ def decision_fusion(request):
     Respond ONLY in valid JSON: {{"result": "ALLOW", "rationale": "One sentence."}}
     """
 
-    MODELS = ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash']
+    MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite']
     for model_name in MODELS:
         try:
-            client   = genai.Client()
+            key    = os.environ.get('GEMINI_API_KEY', '')
+            http_opts = types.HttpOptions(timeout=12000)  # 12s timeout
+            client = genai.Client(api_key=key, http_options=http_opts) if key else genai.Client(http_options=http_opts)
             response = client.models.generate_content(
                 model=model_name, contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
-            decision = json.loads(response.text)
+            raw = response.text.strip()
+            if raw.startswith('```'):
+                import re as _re
+                raw = _re.sub(r'^```[a-z]*\n?', '', raw)
+                raw = _re.sub(r'\n?```$', '', raw.strip())
+            decision = json.loads(raw)
             print(f"[decision_fusion] {model_name}: {decision}")
             return Response(decision)
         except Exception as e:
-            print(f"[decision_fusion] {model_name} failed: {str(e)[:80]}")
-            time.sleep(0.5)
+            print(f"[decision_fusion] {model_name} failed: {str(e)[:120]}")
+            time.sleep(0.3)
 
     # Local fallback
     result    = "ESCALATE" if risk_score > 0.8 else "ALLOW"
