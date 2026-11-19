@@ -72,4 +72,73 @@ def add_page_number_to_section(section):
     fldSimple2.set(qn('w:instr'), 'NUMPAGES')
     p._p.append(fldSimple2)
 
+def add_code_block(doc, title, code_str, language="Python"):
+    """
+    Renders a beautifully formatted code listing block in a Word document.
+    Includes a caption, syntax box with shaded background, left accent border,
+    and monospace font (Consolas).
+    """
+    # Caption paragraph
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p_cap.paragraph_format.space_before = Pt(8)
+    p_cap.paragraph_format.space_after = Pt(3)
+    
+    run_lbl = p_cap.add_run(f"Listing: ")
+    run_lbl.font.name = "Times New Roman"
+    run_lbl.font.size = Pt(10.5)
+    run_lbl.font.bold = True
+    run_lbl.font.color.rgb = RGBColor(15, 23, 42)
+    
+    run_title = p_cap.add_run(title)
+    run_title.font.name = "Times New Roman"
+    run_title.font.size = Pt(10.5)
+    run_title.font.italic = True
+    
+    run_lang = p_cap.add_run(f" [{language}]")
+    run_lang.font.name = "Times New Roman"
+    run_lang.font.size = Pt(9.5)
+    run_lang.font.bold = True
+    run_lang.font.color.rgb = RGBColor(220, 38, 38)
+
+    # Table container for code
+    table = doc.add_table(rows=1, cols=1)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    cell = table.rows[0].cells[0]
+    cell.width = Inches(5.8)
+    
+    set_cell_background(cell, "F8FAFC")
+    set_cell_margins(cell, top=100, bottom=100, left=140, right=140)
+    set_cell_borders(cell,
+                     top={'val':'single','sz':4,'color':'CBD5E1'},
+                     bottom={'val':'single','sz':4,'color':'CBD5E1'},
+                     left={'val':'single','sz':16,'color':'DC2626'},  # Thick red accent on left
+                     right={'val':'single','sz':4,'color':'CBD5E1'})
+    
+    lines = code_str.strip().split('\n')
+    p_first = cell.paragraphs[0]
+    p_first.paragraph_format.space_before = Pt(0)
+    p_first.paragraph_format.space_after = Pt(0)
+    p_first.paragraph_format.line_spacing = 1.0
+    
+    if lines:
+        r0 = p_first.add_run(lines[0])
+        r0.font.name = "Consolas"
+        r0.font.size = Pt(8.5)
+        r0.font.color.rgb = RGBColor(15, 23, 42)
+        
+    for line in lines[1:]:
+        p_line = cell.add_paragraph()
+        p_line.paragraph_format.space_before = Pt(0)
+        p_line.paragraph_format.space_after = Pt(0)
+        p_line.paragraph_format.line_spacing = 1.0
+        r = p_line.add_run(line if line else " ")
+        r.font.name = "Consolas"
+        r.font.size = Pt(8.5)
+        r.font.color.rgb = RGBColor(15, 23, 42)
+        
+    p_after = doc.add_paragraph()
+    p_after.paragraph_format.space_before = Pt(2)
+    p_after.paragraph_format.space_after = Pt(6)
+
 print("Helper script initialized.")
