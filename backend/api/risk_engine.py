@@ -16,14 +16,16 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
     if amount >= 100000:       # ₹1 lakh+  → maximum risk
         amount_score = 1.0
     elif amount >= 50000:      # ₹50k–1 lakh → very high
-        amount_score = 0.85
-    elif amount >= 30000:      # ₹30k–50k  → high
-        amount_score = 0.65
-    elif amount >= 10000:      # ₹10k–30k  → medium
-        amount_score = 0.4
-    elif amount >= 2000:       # ₹2k–10k   → low-medium
-        amount_score = 0.2
-    else:                      # < ₹2k     → routine
+        amount_score = 0.90
+    elif amount >= 25000:      # ₹25k–50k  → high (policy step-up threshold)
+        amount_score = 0.80
+    elif amount >= 10000:      # ₹10k–25k  → medium
+        amount_score = 0.50
+    elif amount >= 5000:       # ₹5k–10k   → moderate
+        amount_score = 0.30
+    elif amount >= 2000:       # ₹2k–5k    → low-medium
+        amount_score = 0.15
+    else:                      # < ₹2k     → routine low
         amount_score = 0.05
 
     # ── Signal 2: Time of Day ─────────────────────────────────────────────────
@@ -46,27 +48,31 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
         payee_score = 0.1
 
     # ── Signal 4: Device Velocity ─────────────────────────────
-    # Randomly simulate a new device (SIM-swap pattern) for large amounts to show dynamic scoring
-    if amount > 50000:
+    # Simulate elevated velocity / SIM-swap patterns on high-value transfers
+    if amount >= 50000:
         device_velocity_score = 0.85
-    elif amount > 25000:
-        device_velocity_score = 0.45
+    elif amount >= 25000:
+        device_velocity_score = 0.65
+    elif amount >= 10000:
+        device_velocity_score = 0.40
     else:
-        device_velocity_score = 0.1
+        device_velocity_score = 0.10
 
     # ── Signal 5: Location Change ─────────────────────────────
     # Simulate unusual location if time is odd and amount is medium-high
     if time_score > 0.5 and amount > 10000:
         location_change_score = 0.75
-    elif amount > 30000:
-        location_change_score = 0.35
+    elif amount >= 25000:
+        location_change_score = 0.45
+    elif amount > 10000:
+        location_change_score = 0.25
     else:
-        location_change_score = 0.1
+        location_change_score = 0.10
 
     # ── Combined Score (weighted average) ────────────────────────────────────
     weights = {
-        'transfer_amount': 0.40,
-        'payee_risk':      0.25,
+        'transfer_amount': 0.45,
+        'payee_risk':      0.20,
         'device_velocity': 0.15,
         'location_change': 0.10,
         'time_of_day':     0.10,
@@ -80,8 +86,13 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
         (time_score * weights['time_of_day'])
     )
 
+    final_score = round(final_score, 2)
+
+    # Policy Rule: High-value transfers (>= ₹25,000) OR risk score >= 0.40 MANDATE step-up challenge
+    challenge_required = (final_score >= 0.40) or (amount >= 25000)
+
     return {
-        'risk_score': round(final_score, 2),
+        'risk_score': final_score,
         'risk_factors': {
             'transfer_amount': amount_score,
             'payee_risk':      payee_score,
@@ -89,5 +100,5 @@ def compute_risk_score(amount: float, payee_name: str, hour: int = None) -> dict
             'location_change': location_change_score,
             'time_of_day':     time_score,
         },
-        'challenge_required': final_score >= 0.50
+        'challenge_required': challenge_required
     }
