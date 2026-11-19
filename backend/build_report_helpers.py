@@ -141,4 +141,49 @@ def add_code_block(doc, title, code_str, language="Python"):
     p_after.paragraph_format.space_before = Pt(2)
     p_after.paragraph_format.space_after = Pt(6)
 
+def add_diagram_image(doc, fig_num, title, img_path, description="", width_inches=5.5):
+    """
+    Inserts a high-resolution diagram image into the document with a centered caption
+    and explanatory descriptive paragraph.
+    """
+    if not os.path.exists(img_path):
+        print(f"[Warning] Diagram file not found: {img_path}")
+        return
+
+    # Image container paragraph
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_img.paragraph_format.space_before = Pt(12)
+    p_img.paragraph_format.space_after = Pt(4)
+    run_img = p_img.add_run()
+    run_img.add_picture(img_path, width=Inches(width_inches))
+
+    # Caption paragraph
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_cap.paragraph_format.space_before = Pt(2)
+    p_cap.paragraph_format.space_after = Pt(8)
+    
+    run_num = p_cap.add_run(f"Figure {fig_num}: ")
+    run_num.font.name = "Times New Roman"
+    run_num.font.size = Pt(10.5)
+    run_num.font.bold = True
+    
+    run_title = p_cap.add_run(title)
+    run_title.font.name = "Times New Roman"
+    run_title.font.size = Pt(10.5)
+    run_title.font.italic = True
+
+    # Description paragraph
+    if description:
+        p_desc = doc.add_paragraph()
+        p_desc.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p_desc.paragraph_format.space_before = Pt(0)
+        p_desc.paragraph_format.space_after = Pt(10)
+        p_desc.paragraph_format.line_spacing = 1.15
+        run_desc = p_desc.add_run(description)
+        run_desc.font.name = "Times New Roman"
+        run_desc.font.size = Pt(10)
+        run_desc.font.color.rgb = RGBColor(71, 85, 105)
+
 print("Helper script initialized.")

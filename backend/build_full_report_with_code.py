@@ -11,7 +11,8 @@ from build_report_helpers import (
     set_cell_background,
     set_cell_borders,
     add_page_number_to_section,
-    add_code_block
+    add_code_block,
+    add_diagram_image
 )
 
 def get_code_snippet(filepath, start_line, end_line):
@@ -399,19 +400,17 @@ def build_full_report():
 
     fig_items = [
         ("2.1", "Conceptual Threat Model of Intercepted SMS OTP vs Multimodal Step-Up", "7"),
-        ("3.1", "MSAS End-to-End System Context & Boundary Diagram", "14"),
-        ("3.2", "High-Level Architecture: Client Browser, Django Engine & External AI Layers", "15"),
-        ("3.3", "Step-Up Verification Workflow Sequence Diagram", "16"),
-        ("3.4", "Entity-Relationship (ER) Schema Diagram of Core Database Models", "17"),
-        ("3.5", "Facial Landmark Layout for 3D Head-Pose & Eye-Aspect-Ratio (EAR)", "21"),
-        ("4.1", "ZephyrBank Banking Dashboard & Low-Risk Passthrough Transaction", "32"),
-        ("4.2", "High-Risk Transaction Step-Up Modal Escalation Notification", "34"),
-        ("4.3", "Active 3D Spatial Head-Turn Liveness Detection (MediaPipe FaceMesh)", "36"),
-        ("4.4", "Dynamic Spoken One-Time Code Verification with OpenAI Whisper", "37"),
-        ("4.5", "OpenCV Photometric Anti-Spoofing & KYC Face Cross-Verification Matrix", "38"),
-        ("4.6", "Google Gemini LLM Multimodal Decision Fusion Allowing Step-Up Transaction", "40"),
-        ("4.7", "MSAS Administrative Console: Risk Analytics & Tamper-Evident Audit Trails", "41"),
-        ("4.8", "Automated Digital eKYC Onboarding Pipeline with Document OCR", "42"),
+        ("3.1", "MSAS Multi-Tier Decoupled System Architecture Topology", "14"),
+        ("3.2", "Multimodal Step-Up Verification Workflow Sequence & Decision Flowchart", "16"),
+        ("3.3", "Entity-Relationship (ER) Schema Model in Strict Chen's Notation", "18"),
+        ("4.1", "ZephyrBank Banking Dashboard & Low-Risk Passthrough Transaction", "34"),
+        ("4.2", "High-Risk Transaction Step-Up Modal Escalation Notification", "36"),
+        ("4.3", "Active 3D Spatial Head-Turn Liveness Detection (MediaPipe FaceMesh)", "38"),
+        ("4.4", "Dynamic Spoken One-Time Code Verification with OpenAI Whisper", "39"),
+        ("4.5", "OpenCV Photometric Anti-Spoofing & KYC Face Cross-Verification Matrix", "40"),
+        ("4.6", "Google Gemini LLM Multimodal Decision Fusion Allowing Step-Up Transaction", "42"),
+        ("4.7", "MSAS Administrative Console: Risk Analytics & Tamper-Evident Audit Trails", "43"),
+        ("4.8", "Automated Digital eKYC Onboarding Pipeline with Document OCR", "44"),
     ]
 
     t_figs = doc.add_table(rows=len(fig_items) + 1, cols=3)
@@ -737,16 +736,55 @@ def build_full_report():
 
     add_heading_1("3.2 System Architecture, Flowcharts, and ER Diagrams")
     add_p(
-        "The MSAS architecture comprises three decoupled tiers interacting over secure REST APIs and WebSocket communication channels:"
+        "To satisfy the rigorous real-time performance, fault-tolerance, and regulatory audit benchmarks required of modern financial middleware, MSAS is engineered around a modular, decoupled multi-tier topology. This section details the complete architectural structure, the operational execution sequence flowchart, and the underlying relational data model expressed strictly in Chen's Entity-Relationship notation."
+    )
+
+    # 3.2.1 Architecture Topology
+    add_heading_2("3.2.1 System Architecture Topology")
+    add_p(
+        "Figure 3.1 illustrates the structural organization of MSAS across three cooperating architectural tiers: the Client Presentation Tier (Next.js 16 / React 19 / MediaPipe WASM), the Core Security Middleware Tier (Django 6.1 REST Framework / OpenCV / Whisper), and the Cognitive Intelligence & Persistence Tier (Google Gemini 3.8 Flash / SQLite 3). Communication across tiers is strictly mediated via JSON-RPC/REST over TLS and authenticated using stateless JSON Web Tokens (JWT) adhering to strict fail-closed state machines."
+    )
+    add_diagram_image(
+        doc, "3.1", 
+        "MSAS Multi-Tier Decoupled System Architecture Topology",
+        r"d:\Snigdha\majorprojectv1\backend\diagrams\fig3_1_system_architecture.png",
+        "Figure 3.1 depicts the end-to-end multi-tier topology spanning the client browser, security middleware gateway, OpenCV/Whisper biometric processors, Google Gemini cognitive reasoning agent, and the relational persistence database.",
+        width_inches=5.6
+    )
+
+    # 3.2.2 Execution Flowchart
+    add_heading_2("3.2.2 Multimodal Step-Up Execution Flowchart")
+    add_p(
+        "Figure 3.2 delineates the operational execution flow of an incoming financial transfer. When a transfer is submitted from the ZephyrBank portal, the contextual risk engine evaluates heuristic parameters. Transactions with risk scores R <= 0.40 receive immediate low-risk approval without interrupting the user. Transactions exceeding the threshold (R > 0.40) trigger the multimodal step-up challenge sequence. Failure at any intermediate biometric checkpoint (3D head-turn timeout, acoustic digit mismatch, or KYC face mismatch) immediately forces the state machine into a secure fail-closed DENY outcome."
+    )
+    add_diagram_image(
+        doc, "3.2", 
+        "Multimodal Step-Up Verification Workflow Sequence & Decision Flowchart",
+        r"d:\Snigdha\majorprojectv1\backend\diagrams\fig3_2_stepup_flowchart.png",
+        "Figure 3.2 outlines the transaction authorization sequence from initiation and contextual risk calculation to active 3D spatial liveness, dual feature matching, and Gemini LLM decision fusion.",
+        width_inches=5.2
+    )
+
+    # 3.2.3 Chen's ER Diagram
+    add_heading_2("3.2.3 Entity-Relationship (ER) Data Model in Chen's Notation")
+    add_p(
+        "Figure 3.3 presents the formal conceptual data model of MSAS adhering strictly to Peter Chen's Entity-Relationship modeling notation. Under Chen's notation conventions:"
     )
     add_p(
-        "1. Presentation Tier (Next.js / TypeScript): Manages user interaction, media hardware streams, client-side MediaPipe landmark inference, and real-time audio recording."
+        "• Entity Sets (Rectangles): Represent primary business objects within the domain, specifically USER (core authentication entity), USER_PROFILE (biometric vectors, wallet balance), TRANSACTION (financial records and risk scores), AUDIT_LOG (tamper-evident lifecycle events), and KYC_APPLICATION (onboarding identities and verified document records)."
     )
     add_p(
-        "2. Middleware Tier (Django REST Framework): Hosts authentication gateways, the contextual risk engine, OpenCV anti-spoofing and face cross-matching modules, and the Whisper speech transcription pipeline."
+        "• Relationship Sets (Diamonds): Model associations connecting entities, including HAS (1:1 link between User and Profile), INITIATES (1:N link between User and Transactions), GENERATES (1:N link between Transaction and Audit Logs), and SUBMITS (1:1 link between User and KYC Application)."
     )
     add_p(
-        "3. Cognitive & Intelligence Tier (Google Gemini 3.8 Flash): Serves as the high-level multimodal decision arbiter, fusing complex signals into transparent security rationales."
+        "• Attributes (Ovals / Ellipses): Depict properties bound to entities. In strict compliance with Chen's notation, Primary Key attributes are explicitly underlined (e.g., id in User, Transaction, Profile, and KYC records)."
+    )
+    add_diagram_image(
+        doc, "3.3", 
+        "Entity-Relationship (ER) Schema Model in Strict Chen's Notation",
+        r"d:\Snigdha\majorprojectv1\backend\diagrams\fig3_3_chen_er_diagram.png",
+        "Figure 3.3 provides the complete Chen's notation ER diagram illustrating entities (rectangles), relationships (diamonds) with cardinality ratios (1:1, 1:N), and attributes (ovals) with underlined primary key identifiers.",
+        width_inches=5.6
     )
 
     add_heading_1("3.3 Design and Risk Decision Criteria")
