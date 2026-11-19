@@ -538,11 +538,37 @@ export default function AuthenticationChallenge({ transactionId, token, riskScor
   };
 
 
-  const failClosed = (msg: string) => {
+  const failClosed = async (msg: string) => {
     setError(msg);
-    setDecision({ result: 'DENY', rationale: msg });
+    // On high-risk transfers (riskScore >= 0.5), failing or aborting a step-up challenge escalates to admin
+    const decisionResult = riskScore >= 0.5 ? 'ESCALATE' : 'DENY';
+    const rationale = riskScore >= 0.5
+      ? `[Biometric Alert] ${msg} Transaction frozen & escalated for admin compliance review.`
+      : msg;
+
+    setDecision({ result: decisionResult, rationale });
     setPhase('DONE');
     stopMediaTracks();
+
+    // Persist real-time decision to backend so it immediately populates the Admin Escalation Queue!
+    if (transactionId && token) {
+      try {
+        await fetch('http://127.0.0.1:8000/api/transactions/save-decision/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            transaction_id:  transactionId,
+            liveness_passed: livenessPassedRef.current,
+            audio_matched:   false,
+            result:          decisionResult,
+            rationale:       rationale,
+            transcription:   spokenCodeRef.current || '',
+          }),
+        });
+      } catch (err) {
+        console.error('[failClosed] Failed to persist decision to backend:', err);
+      }
+    }
   };
 
   const stopMediaTracks = () => {

@@ -21,6 +21,8 @@ export default function AdminDashboard() {
   const [auditLogs,   setAuditLogs]   = useState<AuditEntry[]>([]);
   const [kycApps,     setKycApps]     = useState<KYCApp[]>([]);
   const [loading,     setLoading]     = useState(false);
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime]   = useState<Date>(new Date());
 
   // Create user form
   const [showCreate, setShowCreate] = useState(false);
@@ -33,27 +35,43 @@ export default function AdminDashboard() {
     loadTab(tab);
   }, [tab, token]);
 
-  const loadTab = async (t: Tab) => {
+  // Real-time live polling (auto-refreshes every 3 seconds to catch live user transactions)
+  useEffect(() => {
+    if (!token || !user?.is_staff) return;
+
+    const pollTimer = setInterval(() => {
+      loadTab(tab, true);
+    }, 3000);
+
+    return () => clearInterval(pollTimer);
+  }, [tab, token, user]);
+
+  const loadTab = async (t: Tab, isBackground = false) => {
     if (!token) return;
-    setLoading(true);
+    if (!isBackground) setLoading(true);
+    else setIsLiveSyncing(true);
     try {
       if (t === 'home') {
         const r = await apiFetch('/admin/analytics/', token);
-        setAnalytics(await r.json());
+        if (r.ok) setAnalytics(await r.json());
       } else if (t === 'users') {
         const r = await apiFetch('/admin/users/', token);
-        setUsers(await r.json());
+        if (r.ok) setUsers(await r.json());
       } else if (t === 'escalations') {
         const r = await apiFetch('/admin/escalations/', token);
-        setEscalations(await r.json());
+        if (r.ok) setEscalations(await r.json());
       } else if (t === 'kyc') {
         const r = await apiFetch('/admin/kyc/', token);
-        setKycApps(await r.json());
+        if (r.ok) setKycApps(await r.json());
       } else {
         const r = await apiFetch('/admin/audit-log/', token);
-        setAuditLogs(await r.json());
+        if (r.ok) setAuditLogs(await r.json());
       }
-    } finally { setLoading(false); }
+      setLastSyncTime(new Date());
+    } finally {
+      if (!isBackground) setLoading(false);
+      else setIsLiveSyncing(false);
+    }
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -307,6 +325,33 @@ export default function AdminDashboard() {
         {/* ── Escalations Tab ───────────────────────────────────────────────── */}
         {tab === 'escalations' && (
           <div className="space-y-4">
+            {/* Live Real-time Polling Status Banner */}
+            <div className="flex flex-wrap items-center justify-between bg-white border border-gray-200 rounded-xl px-5 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Real-Time Escalation Monitor Active</p>
+                  <p className="text-xs text-gray-500">
+                    Live database stream · Auto-refreshes every 3s · Last synced: {lastSyncTime.toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => loadTab('escalations')}
+                  disabled={loading || isLiveSyncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors border border-gray-200"
+                >
+                  <span className={isLiveSyncing ? 'animate-spin' : ''}>🔄</span>
+                  {isLiveSyncing ? 'Syncing...' : 'Sync Now'}
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               {[
                 { label: 'Pending Review', value: escalations.length, color: '#d32f2f' },

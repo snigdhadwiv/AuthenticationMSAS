@@ -247,7 +247,13 @@ def admin_review(request, txn_id):
     if action not in ('APPROVE', 'REJECT'):
         return Response({'error': 'action must be APPROVE or REJECT.'}, status=400)
 
-    txn.status      = Transaction.Status.ALLOWED if action == 'APPROVE' else Transaction.Status.DENIED
+    if action == 'APPROVE':
+        txn.status = Transaction.Status.ALLOWED
+        # Execute the transfer in real-time when approved by admin
+        _execute_transfer(txn.user, txn.payee_name, txn.payee_account, float(txn.amount))
+    else:
+        txn.status = Transaction.Status.DENIED
+
     txn.reviewed_by = request.user
     txn.review_note = note
     txn.reviewed_at = timezone.now()
@@ -757,10 +763,26 @@ def decision_fusion(request):
         })
 
     # ── Biometric Ambiguity / Borderline Case (Human-in-the-Loop Escalation) ───
-    if voice_score < 0.70:
+    if voice_score < 0.75:
         return Response({
             "result": "ESCALATE",
-            "rationale": f"Liveness and passcode verified, but voice similarity ({voice_score:.2f}) was borderline due to acoustic noise. Transaction frozen for compliance officer review."
+            "rationale": f"Liveness and passcode verified, but voice similarity ({voice_score:.2f}) was borderline due to acoustic variance. Transaction frozen for compliance officer review."
+        })
+
+    # Check KYC Face Match result if present
+    face_match = request.data.get('face_match', None)
+    if face_match and isinstance(face_match, dict):
+        if not face_match.get('face_match', True) or face_match.get('similarity', 1.0) < 0.60:
+            return Response({
+                "result": "ESCALATE",
+                "rationale": f"KYC Face Cross-Verification mismatch (Score: {face_match.get('similarity', 0):.2f}). Flagged for fraud and identity review."
+            })
+
+    # High-Risk Transaction Escalation Policy (Risk Score >= 0.70)
+    if risk_score >= 0.70:
+        return Response({
+            "result": "ESCALATE",
+            "rationale": f"Elevated transaction risk score ({int(risk_score * 100)}%). Biometrics verified and frozen for compliance officer authorization."
         })
 
     # Build anti-spoof context string for the LLM
@@ -782,8 +804,8 @@ def decision_fusion(request):
     - Synthetic Audio Check: CLEAN (spectral analysis found no AI artifacts){anti_spoof_ctx}
 
     Decision rules:
-    - ALLOW if risk_score <= 0.8
-    - ESCALATE if risk_score > 0.8
+    - ALLOW if risk_score < 0.70
+    - ESCALATE if risk_score >= 0.70
     Transaction Risk Score (0.0–1.0): {risk_score}
     Respond ONLY in valid JSON: {{"result": "ALLOW", "rationale": "One sentence."}}
     """
@@ -811,7 +833,7 @@ def decision_fusion(request):
             time.sleep(0.3)
 
     # Local fallback
-    result    = "ESCALATE" if risk_score > 0.8 else "ALLOW"
+    result    = "ESCALATE" if risk_score >= 0.70 else "ALLOW"
     rationale = f"Biometrics verified. Risk score {risk_score:.2f} {'flagged for manual review' if result == 'ESCALATE' else 'within threshold'}. (AI fallback mode)"
     return Response({"result": result, "rationale": rationale})
 
